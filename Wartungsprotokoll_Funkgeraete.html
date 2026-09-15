@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Wartungsprotokoll – Funkgeräte</title>
+<style>
+/* ============================================================
+   1. Grundlagen
+   ============================================================ */
+:root{
+  --bg:#eef1f3;
+  --sheet:#ffffff;
+  --ink:#1f2933;
+  --muted:#5b6673;
+  --accent:#1b4b66;
+  --accent-soft:#e4ecf0;
+  --line:#d7dce1;
+  --line-soft:#e7ebee;
+  --ok:#2f7d4f;
+  --warn:#b4711e;
+  --bad:#b23a32;
+}
+*{ box-sizing:border-box; }
+/* muss vor allen display-Regeln stehen, damit [hidden] auch bei Flex-Elementen greift */
+[hidden]{ display:none !important; }
+html,body{ margin:0; padding:0; }
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  font-size:14px;
+  line-height:1.45;
+  padding-bottom:60px;
+  -webkit-text-size-adjust:100%;
+}
+.mono{ font-family:ui-monospace,"SF Mono","Cascadia Mono",Consolas,monospace; letter-spacing:.02em; }
+.print-only{ display:none; }
+
+button{ font:inherit; cursor:pointer; border-radius:6px; border:1px solid transparent; }
+input[type=text],input[type=date],textarea,select{
+  font:inherit; padding:7px 9px; border:1px solid var(--line); border-radius:5px;
+  background:#fff; color:var(--ink); width:100%; min-height:36px;
+}
+textarea{ resize:none; overflow:hidden; }
+input:focus,select:focus,textarea:focus{ outline:2px solid var(--accent); outline-offset:1px; }
+
+/* ============================================================
+   2. Werkzeugleiste
+   ============================================================ */
+.toolbar{
+  position:sticky; top:0; z-index:50;
+  background:var(--accent); color:#fff;
+  display:flex; align-items:center; gap:8px;
+  padding:10px 16px; flex-wrap:wrap;
+}
+.toolbar h1{ font-size:15px; font-weight:600; margin:0; margin-right:auto; }
+.status-text{ font-size:12px; color:#cfe0e8; margin-right:8px; white-space:nowrap; }
+.tb-btn{
+  background:rgba(255,255,255,.12); color:#fff;
+  border:1px solid rgba(255,255,255,.35);
+  padding:7px 12px; font-size:13px; white-space:nowrap;
+}
+.tb-btn:hover{ background:rgba(255,255,255,.22); }
+.tb-btn.primary{ background:#fff; color:var(--accent); font-weight:600; border-color:#fff; }
+.tb-btn.primary:hover{ background:#eaf1f4; }
+
+/* ============================================================
+   3. Hinweisband (Entwurf)
+   ============================================================ */
+.banner{
+  max-width:900px; margin:14px auto 0; padding:12px 16px;
+  background:#faf0e2; border:1px solid #ecd3ac; border-radius:8px;
+  display:flex; align-items:center; gap:12px; flex-wrap:wrap; font-size:13px;
+}
+.banner button{ padding:6px 12px; font-size:13px; }
+.btn-restore{ background:var(--accent); color:#fff; }
+.btn-discard{ background:#fff; border:1px solid var(--line); color:var(--ink); }
+
+/* ============================================================
+   4. Blattfläche
+   ============================================================ */
+.sheet{
+  max-width:900px; margin:20px auto; background:var(--sheet);
+  padding:34px 40px 40px; border-radius:4px;
+  box-shadow:0 1px 3px rgba(20,30,40,.08),0 8px 24px rgba(20,30,40,.06);
+}
+.doc-head{
+  display:flex; justify-content:space-between; align-items:flex-start;
+  border-bottom:2px solid var(--accent); padding-bottom:16px; margin-bottom:24px; gap:20px;
+}
+.doc-head h2{ margin:0 0 4px; font-size:21px; color:var(--accent); font-weight:700; }
+.doc-head .sub{ color:var(--muted); font-size:12.5px; }
+.protokoll-nr{ text-align:right; font-size:12px; color:var(--muted); min-width:190px; }
+.protokoll-nr label{ display:block; font-weight:600; margin-bottom:4px; }
+.protokoll-nr input{ text-align:right; font-size:13px; }
+
+section.block{ margin-bottom:30px; }
+h3.section-title{
+  font-size:12.5px; text-transform:uppercase; letter-spacing:.06em;
+  color:var(--accent); margin:0 0 12px; font-weight:700;
+  display:flex; align-items:center; gap:8px;
+}
+.field-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px 20px; }
+.field{ display:flex; flex-direction:column; gap:4px; }
+.field.span2{ grid-column:1 / -1; }
+.field label{ font-size:11.5px; color:var(--muted); font-weight:600; }
+.hint{ font-size:11px; color:var(--muted); margin-top:3px; }
+.badge{
+  display:inline-block; font-size:11px; font-weight:600; padding:2px 9px;
+  border-radius:20px; background:var(--accent-soft); color:var(--accent);
+}
+
+/* ============================================================
+   5. Frequenzplan
+   ============================================================ */
+.freq-row{
+  border:1px solid var(--line); border-radius:6px;
+  padding:12px 14px; background:#fcfcfd; margin-bottom:10px;
+}
+.freq-head{
+  display:flex; justify-content:space-between; align-items:center;
+  gap:10px; margin-bottom:10px;
+}
+.freq-head .freq-title{ font-weight:700; font-size:13px; }
+.freq-grid{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px 14px; }
+.btn-soft-remove{
+  background:#fff; color:var(--bad); border:1px solid #e8c3bf;
+  padding:5px 10px; font-size:12px;
+}
+.btn-soft-remove:hover:not(:disabled){ background:#fbeae8; }
+.btn-soft-remove:disabled{ color:var(--muted); border-color:var(--line); cursor:not-allowed; opacity:.6; }
+.btn-add{
+  background:var(--accent-soft); color:var(--accent); font-weight:600;
+  padding:10px; border:1px dashed var(--accent); width:100%; font-size:13px;
+}
+.btn-add:hover{ background:#d9e6ec; }
+
+/* ============================================================
+   6. Gerätekarten
+   ============================================================ */
+#geraete-container{ display:flex; flex-direction:column; gap:16px; }
+.device-card{
+  border:1px solid var(--line); border-left:5px solid var(--line);
+  border-radius:6px; padding:16px 18px; background:#fcfcfd;
+}
+.device-card.status-ok{ border-left-color:var(--ok); }
+.device-card.status-warn{ border-left-color:var(--warn); }
+.device-card.status-bad{ border-left-color:var(--bad); }
+.device-head{
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:12px; gap:10px; flex-wrap:wrap;
+}
+.device-title{ font-weight:700; font-size:13.5px; display:flex; align-items:center; gap:8px; }
+
+.sub-title{
+  font-size:11px; text-transform:uppercase; letter-spacing:.05em;
+  color:var(--muted); font-weight:700; margin:16px 0 8px;
+}
+.checks-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:8px 20px; }
+.check-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.check-row label{ font-size:12.5px; }
+.check-row select{ width:130px; flex:none; }
+select.val-io{ color:var(--ok); font-weight:600; }
+select.val-mangel{ color:var(--warn); font-weight:600; }
+select.val-entfaellt{ color:var(--muted); }
+
+.table-wrap{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+table.mess-table{ width:100%; border-collapse:collapse; font-size:12.5px; min-width:520px; }
+table.mess-table th{
+  text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em;
+  color:var(--muted); font-weight:700; padding:4px 6px;
+  border-bottom:1px solid var(--line);
+}
+table.mess-table td{ padding:5px 6px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
+table.mess-table td input{ min-height:32px; padding:5px 7px; }
+.freq-label{ font-weight:600; }
+.freq-meta{ font-size:11px; color:var(--muted); }
+
+.stehwelle-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px 20px; max-width:420px; }
+
+/* ============================================================
+   7. Katalog-Overlay
+   ============================================================ */
+.overlay{
+  position:fixed; inset:0; background:rgba(15,25,35,.45);
+  z-index:100; display:flex; align-items:flex-start; justify-content:center;
+  padding:30px 16px; overflow-y:auto;
+}
+.overlay[hidden]{ display:none; }
+.modal{
+  background:#fff; border-radius:8px; width:100%; max-width:760px;
+  padding:22px 24px 24px; box-shadow:0 12px 40px rgba(10,20,30,.3);
+}
+.modal-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:10px; }
+.modal-head h2{ margin:0; font-size:17px; color:var(--accent); }
+.modal .lead{ color:var(--muted); font-size:12.5px; margin:0 0 16px; }
+table.kat-table{ width:100%; border-collapse:collapse; font-size:13px; }
+table.kat-table th{
+  text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.04em;
+  color:var(--muted); padding:6px; border-bottom:1px solid var(--line);
+}
+table.kat-table td{ padding:6px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
+table.kat-table td.actions{ text-align:right; white-space:nowrap; }
+table.kat-table .hersteller-cell{ font-weight:600; }
+.kat-empty{ color:var(--muted); font-style:italic; padding:14px 6px; }
+.btn-mini{ background:#fff; border:1px solid var(--line); padding:4px 9px; font-size:12px; margin-left:5px; }
+.btn-mini:hover{ background:#f1f4f6; }
+.btn-mini.danger{ color:var(--bad); border-color:#e8c3bf; }
+.btn-mini.danger:hover{ background:#fbeae8; }
+.btn-mini.primary{ background:var(--accent); color:#fff; border-color:var(--accent); }
+.kat-new{
+  margin-top:18px; padding-top:16px; border-top:1px solid var(--line);
+  display:grid; grid-template-columns:1fr 1fr 1fr auto; gap:10px; align-items:end;
+}
+.kat-msg{ font-size:12.5px; color:var(--bad); margin-top:8px; min-height:18px; }
+.modal-foot{ margin-top:18px; text-align:right; }
+.btn-done{ background:var(--accent); color:#fff; padding:8px 18px; font-weight:600; }
+
+.footer-hint{
+  font-size:11.5px; color:var(--muted);
+  max-width:900px; margin:0 auto 30px; text-align:center; padding:0 16px;
+}
+
+/* ============================================================
+   8. Schmale Bildschirme
+   ============================================================ */
+@media (max-width:720px){
+  .sheet{ padding:22px 18px 30px; margin:12px auto; }
+  .field-grid{ grid-template-columns:1fr; }
+  .freq-grid{ grid-template-columns:1fr 1fr; }
+  .checks-grid{ grid-template-columns:1fr; }
+  .kat-new{ grid-template-columns:1fr; }
+  .doc-head{ flex-direction:column; }
+  .protokoll-nr{ text-align:left; }
+  .protokoll-nr input{ text-align:left; }
+}
+
+/* ============================================================
+   9. Druck / PDF (A4)
+   ============================================================ */
+@page{ size:A4 portrait; margin:14mm 12mm; }
+
+@media print{
+  body{ background:#fff; padding:0; font-size:10.5pt; line-height:1.3; }
+  .no-print{ display:none !important; }
+  .print-only{ display:block; }
+  .sheet{ box-shadow:none; margin:0; padding:0; max-width:none; border-radius:0; }
+
+  /* leere Inhalte ausblenden, ohne das Raster zu zerstören */
+  .print-empty{ display:none !important; }
+
+  /* Eingabefelder als schlichter Text */
+  input[type=text],input[type=date],textarea,select{
+    border:none; border-bottom:1px solid #c2c8cd; border-radius:0;
+    background:transparent; padding:1px 0; min-height:0;
+    -webkit-appearance:none; appearance:none; color:#000;
+  }
+  textarea{ border-bottom:none; }
+
+  .doc-head{ padding-bottom:10px; margin-bottom:14px; }
+  .doc-head h2{ font-size:15pt; }
+  .doc-head .sub{ font-size:8.5pt; }
+  section.block{ margin-bottom:14px; }
+  h3.section-title{ font-size:8.5pt; margin-bottom:7px; }
+  .field-grid{ gap:7px 16px; }
+  .field label{ font-size:7.5pt; }
+  .hint{ display:none; }
+
+  /* Gerätekarten kompakt, aber nie zerschnitten */
+  #geraete-container{ gap:9px; }
+  .device-card{
+    background:#fff; padding:9px 11px; border-left-width:3px;
+    break-inside:avoid; page-break-inside:avoid;
+  }
+  .device-title{ font-size:10pt; }
+  .badge{ font-size:7.5pt; padding:1px 7px; }
+  .sub-title{ font-size:7.5pt; margin:9px 0 4px; }
+  .checks-grid{ gap:2px 16px; }
+  .check-row label{ font-size:8.5pt; }
+  .check-row select{ width:90px; }
+  .stehwelle-grid{ gap:7px 16px; }
+
+  /* Messwert-Tabellen nicht umbrechen */
+  .table-wrap{ overflow:visible; }
+  table.mess-table{ min-width:0; font-size:8.5pt; break-inside:avoid; page-break-inside:avoid; }
+  table.mess-table th{ font-size:7pt; padding:2px 4px; }
+  table.mess-table td{ padding:2px 4px; }
+  table.mess-table td input{ min-height:0; padding:1px 0; }
+  .freq-meta{ font-size:7.5pt; }
+
+  /* Frequenzplan als kompakte Tabelle */
+  table.freq-print{ width:100%; border-collapse:collapse; font-size:8.5pt; break-inside:avoid; }
+  table.freq-print th{
+    text-align:left; font-size:7pt; text-transform:uppercase; letter-spacing:.04em;
+    color:#333; padding:3px 5px; border-bottom:1px solid #999;
+  }
+  table.freq-print td{ padding:3px 5px; border-bottom:1px solid #ddd; }
+}
+</style>
+</head>
+<body>
+
+<!-- ============================================================
+     Werkzeugleiste
+     ============================================================ -->
+<div class="toolbar no-print">
+  <h1>Wartungsprotokoll – Funkgeräte</h1>
+  <span class="status-text" id="save-status"></span>
+  <button class="tb-btn" id="btn-new" type="button">Neues Protokoll</button>
+  <button class="tb-btn" id="btn-katalog" type="button">⚙️ Gerätekatalog</button>
+  <button class="tb-btn" id="btn-load" type="button">📂 Laden</button>
+  <input type="file" id="file-input" accept="application/json,.json" style="display:none">
+  <button class="tb-btn" id="btn-save" type="button">💾 Speichern</button>
+  <button class="tb-btn primary" id="btn-print" type="button">🖨️ Als PDF speichern</button>
+</div>
+
+<!-- Entwurf-Hinweis -->
+<div class="banner no-print" id="draft-banner" hidden>
+  <span>Es wurde ein automatisch gespeicherter Entwurf gefunden (<span id="draft-time"></span>).</span>
+  <button class="btn-restore" id="btn-restore" type="button">Wiederherstellen</button>
+  <button class="btn-discard" id="btn-discard" type="button">Verwerfen</button>
+</div>
+
+<!-- ============================================================
+     Protokoll
+     ============================================================ -->
+<main class="sheet" id="sheet">
+
+  <div class="doc-head">
+    <div>
+      <h2>Wartungsprotokoll Funkgeräte</h2>
+      <div class="sub">Prüfung, Wartung und Instandsetzung von Funktechnik</div>
+    </div>
+    <div class="protokoll-nr">
+      <label for="protokollNr">Protokoll-Nr.</label>
+      <input type="text" id="protokollNr" class="mono">
+    </div>
+  </div>
+
+  <section class="block">
+    <h3 class="section-title">Auftrag &amp; Kunde</h3>
+    <div class="field-grid">
+      <div class="field keep-print">
+        <label for="kundenName">Kunde</label>
+        <input type="text" id="kundenName" placeholder="Firma / Name">
+      </div>
+      <div class="field keep-print">
+        <label for="datum">Datum</label>
+        <input type="date" id="datum">
+      </div>
+      <div class="field keep-print span2">
+        <label for="technikerName">Techniker</label>
+        <input type="text" id="technikerName" placeholder="Name des Technikers">
+      </div>
+    </div>
+  </section>
+
+  <section class="block">
+    <h3 class="section-title">Frequenzplan <span class="badge" id="freq-count">0</span></h3>
+    <div id="frequenz-container" class="no-print"></div>
+    <button class="btn-add no-print" id="btn-add-freq" type="button">+ Frequenz hinzufügen</button>
+    <div class="print-only" id="freq-print-wrap"></div>
+  </section>
+
+  <section class="block">
+    <h3 class="section-title">Geräte <span class="badge" id="geraete-count">0</span></h3>
+    <div id="geraete-container"></div>
+    <button class="btn-add no-print" id="btn-add-geraet" type="button" style="margin-top:14px;">+ Gerät hinzufügen</button>
+  </section>
+
+  <section class="block" id="abschluss-section">
+    <h3 class="section-title">Abschluss</h3>
+    <div class="field-grid">
+      <div class="field span2">
+        <label for="bemerkungen">Allgemeine Bemerkungen</label>
+        <textarea id="bemerkungen" rows="2"></textarea>
+      </div>
+      <div class="field">
+        <label for="naechsteWartung">Nächster Wartungstermin</label>
+        <input type="date" id="naechsteWartung">
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<p class="footer-hint no-print">
+  „Als PDF speichern“ öffnet den Druckdialog – dort als Ziel „Als PDF sichern“ bzw. „Als PDF speichern“ wählen.<br>
+  Der automatische Entwurf im Browser schützt vor versehentlichem Schließen; zum dauerhaften Ablegen bitte „💾 Speichern“ verwenden.
+</p>
+
+<!-- ============================================================
+     Katalog-Overlay
+     ============================================================ -->
+<div class="overlay no-print" id="katalog-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="katalog-title">
+    <div class="modal-head">
+      <h2 id="katalog-title">Gerätekatalog</h2>
+      <button class="btn-mini" id="btn-katalog-close" type="button">Schließen</button>
+    </div>
+    <p class="lead">Hersteller, Modelle und deren Art. Der Katalog gilt für alle Protokolle auf diesem Gerät.</p>
+
+    <table class="kat-table">
+      <thead>
+        <tr><th>Hersteller</th><th>Modell</th><th>Art</th><th></th></tr>
+      </thead>
+      <tbody id="katalog-body"></tbody>
+    </table>
+
+    <div class="kat-new">
+      <div class="field">
+        <label for="kat-new-hersteller">Hersteller</label>
+        <input type="text" id="kat-new-hersteller" list="hersteller-vorschlaege" placeholder="z. B. Motorola">
+        <datalist id="hersteller-vorschlaege"></datalist>
+      </div>
+      <div class="field">
+        <label for="kat-new-modell">Modell</label>
+        <input type="text" id="kat-new-modell" placeholder="z. B. DP4801e">
+      </div>
+      <div class="field">
+        <label for="kat-new-art">Art</label>
+        <select id="kat-new-art"></select>
+      </div>
+      <button class="btn-mini primary" id="btn-kat-add" type="button" style="height:36px;">Hinzufügen</button>
+    </div>
+    <div class="kat-msg" id="kat-msg"></div>
+
+    <div class="modal-foot">
+      <button class="btn-mini" id="btn-katalog-reset" type="button">Auf Standardliste zurücksetzen</button>
+      <button class="btn-done" id="btn-katalog-done" type="button">Fertig</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============================================================
+   Konstanten
+   ============================================================ */
+const ARTEN = ["Handfunkgerät","Fahrzeugfunkgerät","Feststation","Repeater","Sonstiges"];
+const ARTEN_MIT_STEHWELLE = ["Fahrzeugfunkgerät","Feststation","Repeater"];
+
+/*
+  Grundbestand des Gerätekatalogs.
+  Schwerpunkt Motorola und Kenwood. Kenwood-Modelle sind ohne Länder-/
+  Ausstattungssuffix (E, E2, E3, NE, DE …) geführt – die konkrete Variante
+  kann bei Bedarf über die Katalogverwaltung ergänzt werden.
+*/
+const KATALOG_GRUNDBESTAND = [
+  // ---------- Motorola: Handfunkgeräte ----------
+  { hersteller:"Motorola", modell:"R2",        art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"R5",        art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"R7",        art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"R7Ex",      art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP1400",    art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP2400e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP2600e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP3441e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP3661e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP4400e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP4401e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP4600e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP4601e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP4800e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP4801e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"DP4801Ex",  art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"SL1600",    art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"SL2600",    art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"SL4000e",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"CP040",     art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"EVX-261",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"MTP3550",   art:"Handfunkgerät" },
+  { hersteller:"Motorola", modell:"MXP600",    art:"Handfunkgerät" },
+  // ---------- Motorola: Fahrzeugfunkgeräte ----------
+  { hersteller:"Motorola", modell:"DM1400",    art:"Fahrzeugfunkgerät" },
+  { hersteller:"Motorola", modell:"DM1600",    art:"Fahrzeugfunkgerät" },
+  { hersteller:"Motorola", modell:"DM2600",    art:"Fahrzeugfunkgerät" },
+  { hersteller:"Motorola", modell:"DM4400e",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Motorola", modell:"DM4600e",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Motorola", modell:"DM4601e",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Motorola", modell:"TLK150",    art:"Fahrzeugfunkgerät" },
+  // ---------- Motorola: Repeater ----------
+  { hersteller:"Motorola", modell:"SLR1000",   art:"Repeater" },
+  { hersteller:"Motorola", modell:"SLR5500",   art:"Repeater" },
+  { hersteller:"Motorola", modell:"SLR5700",   art:"Repeater" },
+  { hersteller:"Motorola", modell:"SLR8000",   art:"Repeater" },
+  { hersteller:"Motorola", modell:"MTR3000",   art:"Repeater" },
+
+  // ---------- Kenwood: Handfunkgeräte ----------
+  { hersteller:"Kenwood",  modell:"NX-1200",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-1300",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-3200",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-3220",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-3300",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-3320",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-5200",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-5300",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-220",    art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-320",    art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"TK-3401D",  art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"TK-3701D",  art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"TK-3360",   art:"Handfunkgerät" },
+  { hersteller:"Kenwood",  modell:"TK-3260",   art:"Handfunkgerät" },
+  // ---------- Kenwood: Fahrzeugfunkgeräte ----------
+  { hersteller:"Kenwood",  modell:"NX-1700",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-1800",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-3720",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-3820",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-5700",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-5800",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-720",    art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"NX-820",    art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"TK-7360",   art:"Fahrzeugfunkgerät" },
+  { hersteller:"Kenwood",  modell:"TK-8360",   art:"Fahrzeugfunkgerät" },
+  // ---------- Kenwood: Repeater ----------
+  { hersteller:"Kenwood",  modell:"NXR-710",   art:"Repeater" },
+  { hersteller:"Kenwood",  modell:"NXR-810",   art:"Repeater" },
+  { hersteller:"Kenwood",  modell:"NXR-5700",  art:"Repeater" },
+  { hersteller:"Kenwood",  modell:"NXR-5800",  art:"Repeater" },
+  { hersteller:"Kenwood",  modell:"TKR-D710",  art:"Repeater" },
+  { hersteller:"Kenwood",  modell:"TKR-D810",  art:"Repeater" },
+  { hersteller:"Kenwood",  modell:"TKR-750",   art:"Repeater" },
+  { hersteller:"Kenwood",  modell:"TKR-850",   art:"Repeater" },
+
+  // ---------- Hytera ----------
+  { hersteller:"Hytera",   modell:"PD365",     art:"Handfunkgerät" },
+  { hersteller:"Hytera",   modell:"PD505",     art:"Handfunkgerät" },
+  { hersteller:"Hytera",   modell:"PD605",     art:"Handfunkgerät" },
+  { hersteller:"Hytera",   modell:"PD685",     art:"Handfunkgerät" },
+  { hersteller:"Hytera",   modell:"PD785",     art:"Handfunkgerät" },
+  { hersteller:"Hytera",   modell:"HP605",     art:"Handfunkgerät" },
+  { hersteller:"Hytera",   modell:"HP685",     art:"Handfunkgerät" },
+  { hersteller:"Hytera",   modell:"HP785",     art:"Handfunkgerät" },
+  { hersteller:"Hytera",   modell:"MD615",     art:"Fahrzeugfunkgerät" },
+  { hersteller:"Hytera",   modell:"MD655",     art:"Fahrzeugfunkgerät" },
+  { hersteller:"Hytera",   modell:"MD785G",    art:"Fahrzeugfunkgerät" },
+  { hersteller:"Hytera",   modell:"RD625",     art:"Repeater" },
+  { hersteller:"Hytera",   modell:"RD985",     art:"Repeater" },
+
+  // ---------- Icom ----------
+  { hersteller:"Icom",     modell:"IC-F1000",  art:"Handfunkgerät" },
+  { hersteller:"Icom",     modell:"IC-F2000",  art:"Handfunkgerät" },
+  { hersteller:"Icom",     modell:"IC-F3400D", art:"Handfunkgerät" },
+  { hersteller:"Icom",     modell:"IC-F4400D", art:"Handfunkgerät" },
+  { hersteller:"Icom",     modell:"IC-F5122D", art:"Fahrzeugfunkgerät" },
+  { hersteller:"Icom",     modell:"IC-F6122D", art:"Fahrzeugfunkgerät" },
+  { hersteller:"Icom",     modell:"IC-F5400D", art:"Fahrzeugfunkgerät" },
+  { hersteller:"Icom",     modell:"IC-F6400D", art:"Fahrzeugfunkgerät" },
+  { hersteller:"Icom",     modell:"IC-FR5300", art:"Repeater" },
+  { hersteller:"Icom",     modell:"IC-FR6300", art:"Repeater" },
+
+  // ---------- Sepura ----------
+  { hersteller:"Sepura",   modell:"SC20",      art:"Handfunkgerät" },
+  { hersteller:"Sepura",   modell:"SC21",      art:"Handfunkgerät" },
+  { hersteller:"Sepura",   modell:"STP9000",   art:"Handfunkgerät" },
+
+  // ---------- Tait ----------
+  { hersteller:"Tait",     modell:"TP3300",    art:"Handfunkgerät" },
+  { hersteller:"Tait",     modell:"TP9400",    art:"Handfunkgerät" },
+  { hersteller:"Tait",     modell:"TM9400",    art:"Fahrzeugfunkgerät" },
+  { hersteller:"Tait",     modell:"TB9400",    art:"Repeater" },
+
+  // ---------- Midland ----------
+  { hersteller:"Midland",  modell:"CT590S",    art:"Handfunkgerät" },
+  { hersteller:"Midland",  modell:"G15",       art:"Handfunkgerät" }
+];
+
+const CHECK_ITEMS = [
+  ["sichtpruefung",  "Sichtprüfung Gehäuse / Display"],
+  ["antenne",        "Antenne / Antennenanschluss"],
+  ["senden",         "Funktionstest Senden"],
+  ["empfangen",      "Funktionstest Empfangen"],
+  ["akku",           "Akku / Batterie"],
+  ["programmierung", "Programmierung / Kanäle"],
+  ["zubehoer",       "Zubehör vollständig"]
+];
+
+const CHECK_OPTIONS = [
+  ["",          "–"],
+  ["io",        "i.O."],
+  ["mangel",    "Mangel"],
+  ["entfaellt", "entfällt"]
+];
+
+const ERGEBNIS_OPTIONS = [
+  ["",                      "– bitte wählen –"],
+  ["funktionsfaehig",       "Funktionsfähig"],
+  ["einschraenkung",        "Funktionsfähig mit Einschränkung"],
+  ["nicht_funktionsfaehig", "Nicht funktionsfähig"],
+  ["ausser_betrieb",        "Außer Betrieb genommen"]
+];
+
+const BANDBREITEN = [
+  ["6.25", "6,25 kHz"],
+  ["12.5", "12,5 kHz"],
+  ["20",   "20 kHz"],
+  ["25",   "25 kHz"]
+];
+
+const MESSFELDER = ["empfindlichkeit_uv","sendeleistung_w","modulation_khz","frequenzablage"];
+
+const LS_KATALOG     = "wp_katalog_v5";   // aktueller Katalog
+const LS_KATALOG_ALT = "wp_katalog_v4";   // Vorgänger, wird einmalig übernommen
+const LS_DRAFT       = "wp_draft_v4";
+const DATA_TYPE  = "wartungsprotokoll_funkgeraete";
+const DATA_VERSION = 4;
+
+/* ============================================================
+   Hilfsfunktionen
+   ============================================================ */
+function pad(n){ return String(n).padStart(2,"0"); }
+
+function todayISO(){
+  const d = new Date();
+  return d.getFullYear() + "-" + pad(d.getMonth()+1) + "-" + pad(d.getDate());
+}
+
+function neueProtokollNr(){
+  const d = new Date();
+  const rand = Math.floor(100 + Math.random()*900);
+  return "WP-" + d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + "-" + rand;
+}
+
+let idCounter = 0;
+function neueId(prefix){
+  idCounter++;
+  return prefix + Date.now().toString(36) + idCounter.toString(36);
+}
+
+function esc(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({
+    "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"
+  })[c]);
+}
+
+function txt(v){ return (v == null) ? "" : String(v); }
+
+function autoResize(ta){
+  if(!ta) return;
+  ta.style.height = "auto";
+  ta.style.height = ta.scrollHeight + "px";
+}
+
+function resizeAllTextareas(){
+  document.querySelectorAll("textarea").forEach(autoResize);
+}
+
+function optionsHtml(pairs, selected){
+  return pairs.map(p =>
+    '<option value="' + esc(p[0]) + '"' + (p[0] === selected ? " selected" : "") + ">" + esc(p[1]) + "</option>"
+  ).join("");
+}
+
+function sortDe(a,b){ return String(a).localeCompare(String(b), "de"); }
+
+/* ============================================================
+   Gerätekatalog
+   ============================================================ */
+let katalog = [];
+
+function katalogLaden(){
+  let gespeichert = null;
+  try{
+    const raw = localStorage.getItem(LS_KATALOG);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed)) gespeichert = parsed;
+    }
+  }catch(e){ gespeichert = null; }
+
+  if(gespeichert){
+    katalog = gespeichert
+      .filter(e => e && e.hersteller && e.modell)
+      .map(e => ({
+        hersteller: String(e.hersteller).trim(),
+        modell: String(e.modell).trim(),
+        art: ARTEN.indexOf(e.art) >= 0 ? e.art : "Sonstiges"
+      }));
+  }else{
+    // Erststart: Grundbestand laden und selbst angelegte Geräte
+    // eines älteren Katalogs einmalig übernehmen.
+    katalogZuruecksetzen(true);
+  }
+}
+
+/** Setzt den Katalog auf den Grundbestand zurück. */
+function katalogZuruecksetzen(altenKatalogUebernehmen){
+  katalog = KATALOG_GRUNDBESTAND.map(e => ({ hersteller:e.hersteller, modell:e.modell, art:e.art }));
+
+  if(altenKatalogUebernehmen){
+    try{
+      const alt = JSON.parse(localStorage.getItem(LS_KATALOG_ALT) || "[]");
+      if(Array.isArray(alt)){
+        alt.forEach(function(e){
+          if(e && e.hersteller && e.modell && !katalogFindet(e.hersteller, e.modell)){
+            katalog.push({
+              hersteller: String(e.hersteller).trim(),
+              modell: String(e.modell).trim(),
+              art: ARTEN.indexOf(e.art) >= 0 ? e.art : "Sonstiges"
+            });
+          }
+        });
+      }
+    }catch(e){ /* alter Katalog unlesbar – Grundbestand genügt */ }
+  }
+  katalogSpeichern();
+}
+
+function katalogSpeichern(){
+  try{ localStorage.setItem(LS_KATALOG, JSON.stringify(katalog)); }
+  catch(e){ /* Speicher nicht verfügbar – Katalog gilt dann nur für diese Sitzung */ }
+}
+
+function katalogFindet(hersteller, modell){
+  return katalog.find(k => k.hersteller === hersteller && k.modell === modell) || null;
+}
+
+function katalogHinzufuegen(hersteller, modell, art){
+  hersteller = String(hersteller || "").trim();
+  modell = String(modell || "").trim();
+  if(!hersteller || !modell) return false;
+  if(katalogFindet(hersteller, modell)) return false;
+  katalog.push({ hersteller, modell, art: ARTEN.indexOf(art) >= 0 ? art : "Sonstiges" });
+  katalogSpeichern();
+  return true;
+}
+
+function katalogSortiert(){
+  return katalog.slice().sort((a,b) =>
+    sortDe(a.hersteller,b.hersteller) || sortDe(a.art,b.art) || sortDe(a.modell,b.modell)
+  );
+}
+
+function herstellerListe(){
+  return Array.from(new Set(katalog.map(k => k.hersteller))).sort(sortDe);
+}
+
+/* ============================================================
+   Frequenzplan
+   ============================================================ */
+const freqContainer = document.getElementById("frequenz-container");
+const freqCountBadge = document.getElementById("freq-count");
+const geraeteContainer = document.getElementById("geraete-container");
+const geraeteCountBadge = document.getElementById("geraete-count");
+
+function freqRows(){
+  return Array.from(freqContainer.querySelectorAll(".freq-row"));
+}
+
+function freqAlsObjekt(row){
+  return {
+    id: row.dataset.id,
+    bezeichnung:      row.querySelector('[data-f="bezeichnung"]').value,
+    betriebsart:      row.querySelector('[data-f="betriebsart"]').value,
+    frequenz:         row.querySelector('[data-f="frequenz"]').value,
+    sendefrequenz:    row.querySelector('[data-f="sendefrequenz"]').value,
+    empfangsfrequenz: row.querySelector('[data-f="empfangsfrequenz"]').value,
+    kanalbandbreite:  row.querySelector('[data-f="kanalbandbreite"]').value
+  };
+}
+
+function frequenzplan(){
+  return freqRows().map(freqAlsObjekt);
+}
+
+function bandbreiteLabel(wert){
+  const treffer = BANDBREITEN.find(b => b[0] === wert);
+  return treffer ? treffer[1] : "";
+}
+
+/** Anzeigetext einer Frequenz für Messwert-Tabellen und Druck. */
+function freqAnzeige(f){
+  const teile = [];
+  if(f.betriebsart === "duplex"){
+    if(f.sendefrequenz) teile.push("TX " + f.sendefrequenz);
+    if(f.empfangsfrequenz) teile.push("RX " + f.empfangsfrequenz);
+  }else if(f.frequenz){
+    teile.push(f.frequenz);
+  }
+  const werte = teile.length ? teile.join(" / ") + " MHz" : "";
+  const meta = [];
+  meta.push(f.betriebsart === "duplex" ? "Duplex" : "Simplex");
+  const bb = bandbreiteLabel(f.kanalbandbreite);
+  if(bb) meta.push(bb);
+  return {
+    label: f.bezeichnung || werte || "Frequenz",
+    meta: (f.bezeichnung && werte ? werte + " · " : "") + meta.join(" · ")
+  };
+}
+
+function freqRowHtml(data){
+  const ba = data.betriebsart === "duplex" ? "duplex" : "simplex";
+  const simplexHidden = ba === "duplex" ? " hidden" : "";
+  const duplexHidden  = ba === "duplex" ? "" : " hidden";
+  return ''
+    + '<div class="freq-head">'
+    +   '<span class="freq-title">Frequenz <span class="freq-idx"></span></span>'
+    +   '<button type="button" class="btn-soft-remove btn-remove-freq no-print">Entfernen</button>'
+    + '</div>'
+    + '<div class="freq-grid">'
+    +   '<div class="field">'
+    +     '<label>Bezeichnung</label>'
+    +     '<input type="text" data-f="bezeichnung" placeholder="z. B. Kanal 1" value="' + esc(data.bezeichnung) + '">'
+    +   '</div>'
+    +   '<div class="field">'
+    +     '<label>Betriebsart</label>'
+    +     '<select data-f="betriebsart">'
+    +       optionsHtml([["simplex","Simplex"],["duplex","Duplex"]], ba)
+    +     '</select>'
+    +   '</div>'
+    +   '<div class="field field-simplex"' + simplexHidden + '>'
+    +     '<label>Frequenz (MHz)</label>'
+    +     '<input type="text" inputmode="decimal" data-f="frequenz" value="' + esc(data.frequenz) + '">'
+    +   '</div>'
+    +   '<div class="field field-duplex"' + duplexHidden + '>'
+    +     '<label>Sendefrequenz (MHz)</label>'
+    +     '<input type="text" inputmode="decimal" data-f="sendefrequenz" value="' + esc(data.sendefrequenz) + '">'
+    +   '</div>'
+    +   '<div class="field field-duplex"' + duplexHidden + '>'
+    +     '<label>Empfangsfrequenz (MHz)</label>'
+    +     '<input type="text" inputmode="decimal" data-f="empfangsfrequenz" value="' + esc(data.empfangsfrequenz) + '">'
+    +   '</div>'
+    +   '<div class="field">'
+    +     '<label>Kanalbandbreite</label>'
+    +     '<select data-f="kanalbandbreite">'
+    +       optionsHtml(BANDBREITEN, data.kanalbandbreite || "12.5")
+    +     '</select>'
+    +   '</div>'
+    + '</div>';
+}
+
+function frequenzHinzufuegen(data, stumm){
+  data = data || {};
+  const row = document.createElement("div");
+  row.className = "freq-row";
+  row.dataset.id = data.id || neueId("f");
+  row.innerHTML = freqRowHtml({
+    bezeichnung:      txt(data.bezeichnung),
+    betriebsart:      data.betriebsart === "duplex" ? "duplex" : "simplex",
+    frequenz:         txt(data.frequenz),
+    sendefrequenz:    txt(data.sendefrequenz),
+    empfangsfrequenz: txt(data.empfangsfrequenz),
+    kanalbandbreite:  txt(data.kanalbandbreite)
+  });
+  freqContainer.appendChild(row);
+  freqNeuNummerieren();
+
+  if(!stumm){
+    // bei jedem Gerät eine passende Messwert-Zeile ergänzen
+    alleGeraete().forEach(card => messZeileEinfuegen(card, freqAlsObjekt(row), null));
+    autosavePlanen();
+  }
+  return row;
+}
+
+function freqNeuNummerieren(){
+  const rows = freqRows();
+  rows.forEach((row, i) => {
+    row.querySelector(".freq-idx").textContent = String(i+1);
+    row.querySelector(".btn-remove-freq").disabled = (rows.length === 1);
+  });
+  freqCountBadge.textContent = String(rows.length);
+}
+
+function frequenzEntfernen(row){
+  if(freqRows().length <= 1) return;
+  if(!confirm("Diese Frequenz wird bei allen Geräten entfernt – fortfahren?")) return;
+  const id = row.dataset.id;
+  row.remove();
+  alleGeraete().forEach(card => {
+    const tr = card.querySelector('tr[data-freq="' + cssEscape(id) + '"]');
+    if(tr) tr.remove();
+  });
+  freqNeuNummerieren();
+  autosavePlanen();
+}
+
+/** Minimaler Ersatz für CSS.escape (nicht überall verfügbar). */
+function cssEscape(value){
+  return String(value).replace(/["\\]/g, "\\$&");
+}
+
+/** Betriebsart umschalten, eingegebene Werte dabei erhalten. */
+function betriebsartUmschalten(row){
+  const ba = row.querySelector('[data-f="betriebsart"]').value;
+  const fSimplex = row.querySelector('[data-f="frequenz"]');
+  const fSenden  = row.querySelector('[data-f="sendefrequenz"]');
+  const fEmpf    = row.querySelector('[data-f="empfangsfrequenz"]');
+
+  if(ba === "duplex"){
+    if(!fSenden.value.trim() && fSimplex.value.trim()) fSenden.value = fSimplex.value;
+  }else{
+    if(!fSimplex.value.trim() && fSenden.value.trim()) fSimplex.value = fSenden.value;
+  }
+  row.querySelectorAll(".field-simplex").forEach(el => { el.hidden = (ba === "duplex"); });
+  row.querySelectorAll(".field-duplex").forEach(el  => { el.hidden = (ba !== "duplex"); });
+  aktualisiereFreqAnzeigen();
+}
+
+/** Anzeigespalte in allen Messwert-Tabellen an den Plan angleichen. */
+function aktualisiereFreqAnzeigen(){
+  frequenzplan().forEach(f => {
+    const anzeige = freqAnzeige(f);
+    document.querySelectorAll('tr[data-freq="' + cssEscape(f.id) + '"]').forEach(tr => {
+      tr.querySelector(".freq-label").textContent = anzeige.label;
+      const meta = tr.querySelector(".freq-meta");
+      meta.textContent = anzeige.meta;
+      meta.hidden = !anzeige.meta;
+    });
+  });
+}
+
+freqContainer.addEventListener("input", function(e){
+  if(e.target.matches("input")){
+    aktualisiereFreqAnzeigen();
+    autosavePlanen();
+  }
+});
+
+freqContainer.addEventListener("change", function(e){
+  const row = e.target.closest(".freq-row");
+  if(!row) return;
+  if(e.target.matches('[data-f="betriebsart"]')){
+    betriebsartUmschalten(row);
+  }else{
+    aktualisiereFreqAnzeigen();
+  }
+  autosavePlanen();
+});
+
+freqContainer.addEventListener("click", function(e){
+  if(e.target.classList.contains("btn-remove-freq")){
+    const row = e.target.closest(".freq-row");
+    if(row) frequenzEntfernen(row);
+  }
+});
+
+document.getElementById("btn-add-freq").addEventListener("click", function(){
+  frequenzHinzufuegen();
+});
+
+/* ============================================================
+   Gerätekarten
+   ============================================================ */
+function alleGeraete(){
+  return Array.from(geraeteContainer.querySelectorAll(".device-card"));
+}
+
+function herstellerOptionsHtml(selected){
+  const liste = herstellerListe();
+  if(selected && liste.indexOf(selected) === -1) liste.push(selected);
+  liste.sort(sortDe);
+  return '<option value="">– wählen –</option>'
+    + liste.map(h => '<option value="' + esc(h) + '"' + (h === selected ? " selected" : "") + ">" + esc(h) + "</option>").join("");
+}
+
+/** Modelle eines Herstellers, gruppiert nach Art (Gruppen und Modelle alphabetisch). */
+function modellOptionsHtml(hersteller, selected){
+  let html = '<option value="">– wählen –</option>';
+  const eintraege = katalog.filter(k => k.hersteller === hersteller);
+
+  const gruppen = {};
+  eintraege.forEach(e => {
+    if(!gruppen[e.art]) gruppen[e.art] = [];
+    gruppen[e.art].push(e.modell);
+  });
+
+  Object.keys(gruppen).sort(sortDe).forEach(art => {
+    html += '<optgroup label="' + esc(art) + '">';
+    gruppen[art].slice().sort(sortDe).forEach(m => {
+      html += '<option value="' + esc(m) + '"' + (m === selected ? " selected" : "") + ">" + esc(m) + "</option>";
+    });
+    html += "</optgroup>";
+  });
+
+  // bereits erfasstes Modell erhalten, auch wenn es im Katalog fehlt
+  if(selected && !eintraege.some(e => e.modell === selected)){
+    html += '<optgroup label="Nicht im Katalog">'
+         +  '<option value="' + esc(selected) + '" selected>' + esc(selected) + "</option>"
+         +  "</optgroup>";
+  }
+  return html;
+}
+
+function checksHtml(values){
+  values = values || {};
+  return CHECK_ITEMS.map(function(item){
+    const key = item[0], label = item[1];
+    return '<div class="check-row">'
+      + "<label>" + esc(label) + "</label>"
+      + '<select data-g="check_' + key + '" class="check-select">'
+      +   optionsHtml(CHECK_OPTIONS, txt(values[key]))
+      + "</select></div>";
+  }).join("");
+}
+
+function messZeileHtml(freq, werte){
+  werte = werte || {};
+  const anzeige = freqAnzeige(freq);
+  let html = '<tr data-freq="' + esc(freq.id) + '">'
+    + '<td><div class="freq-label">' + esc(anzeige.label) + "</div>"
+    + '<div class="freq-meta"' + (anzeige.meta ? "" : " hidden") + ">" + esc(anzeige.meta) + "</div></td>";
+  MESSFELDER.forEach(function(feld){
+    html += '<td><input type="text" inputmode="decimal" data-mess="' + feld + '" value="' + esc(werte[feld]) + '"></td>';
+  });
+  return html + "</tr>";
+}
+
+function messZeileEinfuegen(card, freq, werte){
+  const tbody = card.querySelector(".mess-body");
+  if(!tbody) return;
+  tbody.insertAdjacentHTML("beforeend", messZeileHtml(freq, werte));
+}
+
+function deviceCardHtml(data){
+  const stehwelle = data.stehwelle || {};
+  return ''
+    + '<div class="device-head">'
+    +   '<div class="device-title">Gerät <span class="dev-idx"></span>'
+    +     '<span class="badge art-badge" hidden></span>'
+    +   "</div>"
+    +   '<button type="button" class="btn-soft-remove btn-remove-geraet no-print">Entfernen</button>'
+    + "</div>"
+
+    + '<div class="field-grid">'
+    +   '<div class="field">'
+    +     "<label>Hersteller</label>"
+    +     '<select data-g="hersteller" class="hersteller-select"></select>'
+    +   "</div>"
+    +   '<div class="field">'
+    +     "<label>Modell</label>"
+    +     '<select data-g="modell" class="modell-select"></select>'
+    +     '<div class="hint no-print">Gerät nicht dabei? Über ⚙️ Gerätekatalog anlegen.</div>'
+    +   "</div>"
+    +   '<div class="field">'
+    +     "<label>Seriennummer</label>"
+    +     '<input type="text" class="mono" data-g="seriennummer" value="' + esc(data.seriennummer) + '">'
+    +   "</div>"
+    +   '<div class="field">'
+    +     "<label>Standort / Kennzeichnung</label>"
+    +     '<input type="text" data-g="standort" placeholder="z. B. Fahrzeug 3, Lager" value="' + esc(data.standort) + '">'
+    +   "</div>"
+    + "</div>"
+
+    + '<div class="checks-block">'
+    +   '<div class="sub-title">Prüfung</div>'
+    +   '<div class="checks-grid">' + checksHtml(data.checks) + "</div>"
+    + "</div>"
+
+    + '<div class="field-grid" style="margin-top:14px;">'
+    +   '<div class="field">'
+    +     "<label>Firmware-Version</label>"
+    +     '<input type="text" data-g="firmware" value="' + esc(data.firmware) + '">'
+    +   "</div>"
+    + "</div>"
+
+    + '<div class="messwerte-block">'
+    +   '<div class="sub-title">Messwerte je Frequenz</div>'
+    +   '<div class="table-wrap"><table class="mess-table">'
+    +     "<thead><tr>"
+    +       "<th>Frequenz</th><th>Empfindlichkeit (µV)</th><th>Sendeleistung (W)</th>"
+    +       "<th>Modulation (kHz)</th><th>Frequenzablage</th>"
+    +     "</tr></thead>"
+    +     '<tbody class="mess-body"></tbody>'
+    +   "</table></div>"
+    + "</div>"
+
+    + '<div class="stehwelle-block" hidden>'
+    +   '<div class="sub-title">Stehwelle (Antenne)</div>'
+    +   '<div class="stehwelle-grid">'
+    +     '<div class="field"><label>Vorlaufleistung (W)</label>'
+    +       '<input type="text" inputmode="decimal" data-g="vorlauf_w" value="' + esc(stehwelle.vorlauf_w) + '"></div>'
+    +     '<div class="field"><label>Rücklaufleistung (W)</label>'
+    +       '<input type="text" inputmode="decimal" data-g="ruecklauf_w" value="' + esc(stehwelle.ruecklauf_w) + '"></div>'
+    +   "</div>"
+    + "</div>"
+
+    + '<div class="field-grid" style="margin-top:14px;">'
+    +   '<div class="field span2">'
+    +     "<label>Mängel / Bemerkungen zum Gerät</label>"
+    +     '<textarea data-g="maengel" rows="1">' + esc(data.maengel) + "</textarea>"
+    +   "</div>"
+    +   '<div class="field span2">'
+    +     "<label>Verwendete Ersatzteile</label>"
+    +     '<textarea data-g="ersatzteile" rows="1">' + esc(data.ersatzteile) + "</textarea>"
+    +   "</div>"
+    +   '<div class="field span2">'
+    +     "<label>Ergebnis</label>"
+    +     '<select data-g="ergebnis" class="ergebnis-select">' + optionsHtml(ERGEBNIS_OPTIONS, txt(data.ergebnis)) + "</select>"
+    +   "</div>"
+    + "</div>";
+}
+
+function geraetHinzufuegen(data, stumm){
+  data = data || {};
+  const card = document.createElement("div");
+  card.className = "device-card";
+  card.dataset.id = data.id || neueId("g");
+  card.dataset.art = txt(data.art);
+  card.innerHTML = deviceCardHtml({
+    seriennummer: txt(data.seriennummer),
+    standort:     txt(data.standort),
+    checks:       data.checks || {},
+    firmware:     txt(data.firmware),
+    stehwelle:    { vorlauf_w: txt((data.stehwelle||{}).vorlauf_w), ruecklauf_w: txt((data.stehwelle||{}).ruecklauf_w) },
+    maengel:      txt(data.maengel),
+    ersatzteile:  txt(data.ersatzteile),
+    ergebnis:     txt(data.ergebnis)
+  });
+
+  geraeteContainer.appendChild(card);
+
+  // Auswahlfelder befüllen
+  const hersteller = txt(data.hersteller);
+  const modell = txt(data.modell);
+  card.querySelector(".hersteller-select").innerHTML = herstellerOptionsHtml(hersteller);
+  card.querySelector(".modell-select").innerHTML = modellOptionsHtml(hersteller, modell);
+
+  // Messwert-Zeilen für alle Frequenzen des Plans
+  const werte = data.frequenzmesswerte || {};
+  frequenzplan().forEach(f => messZeileEinfuegen(card, f, werte[f.id]));
+
+  artAnwenden(card);
+  ergebnisFarbe(card);
+  card.querySelectorAll(".check-select").forEach(checkFarbe);
+  card.querySelectorAll("textarea").forEach(autoResize);
+  geraeteNeuNummerieren();
+
+  if(!stumm) autosavePlanen();
+  return card;
+}
+
+function geraeteNeuNummerieren(){
+  const cards = alleGeraete();
+  cards.forEach((c,i) => { c.querySelector(".dev-idx").textContent = String(i+1); });
+  geraeteCountBadge.textContent = String(cards.length);
+}
+
+/** Art-Etikett und Sichtbarkeit der Stehwelle-Felder setzen. */
+function artAnwenden(card){
+  const art = card.dataset.art || "";
+  const badge = card.querySelector(".art-badge");
+  badge.textContent = art;
+  badge.hidden = !art;
+  card.querySelector(".stehwelle-block").hidden = (ARTEN_MIT_STEHWELLE.indexOf(art) === -1);
+}
+
+function ergebnisFarbe(card){
+  const wert = card.querySelector(".ergebnis-select").value;
+  card.classList.remove("status-ok","status-warn","status-bad");
+  if(wert === "funktionsfaehig") card.classList.add("status-ok");
+  else if(wert === "einschraenkung") card.classList.add("status-warn");
+  else if(wert === "nicht_funktionsfaehig" || wert === "ausser_betrieb") card.classList.add("status-bad");
+}
+
+function checkFarbe(select){
+  select.classList.remove("val-io","val-mangel","val-entfaellt");
+  if(select.value) select.classList.add("val-" + select.value);
+}
+
+geraeteContainer.addEventListener("change", function(e){
+  const card = e.target.closest(".device-card");
+  if(!card) return;
+
+  if(e.target.classList.contains("hersteller-select")){
+    card.querySelector(".modell-select").innerHTML = modellOptionsHtml(e.target.value, "");
+    card.dataset.art = "";
+    artAnwenden(card);
+  }else if(e.target.classList.contains("modell-select")){
+    const hersteller = card.querySelector(".hersteller-select").value;
+    const eintrag = katalogFindet(hersteller, e.target.value);
+    card.dataset.art = eintrag ? eintrag.art : "";
+    artAnwenden(card);
+  }else if(e.target.classList.contains("ergebnis-select")){
+    ergebnisFarbe(card);
+  }else if(e.target.classList.contains("check-select")){
+    checkFarbe(e.target);
+  }
+  autosavePlanen();
+});
+
+geraeteContainer.addEventListener("input", function(e){
+  if(e.target.tagName === "TEXTAREA") autoResize(e.target);
+  autosavePlanen();
+});
+
+geraeteContainer.addEventListener("click", function(e){
+  if(!e.target.classList.contains("btn-remove-geraet")) return;
+  const card = e.target.closest(".device-card");
+  if(!card) return;
+  if(!confirm("Dieses Gerät aus dem Protokoll entfernen?")) return;
+  card.remove();
+  geraeteNeuNummerieren();
+  autosavePlanen();
+});
+
+document.getElementById("btn-add-geraet").addEventListener("click", function(){
+  geraetHinzufuegen();
+});
+
+/* ============================================================
+   Katalog-Overlay
+   ============================================================ */
+const overlay = document.getElementById("katalog-overlay");
+const katalogBody = document.getElementById("katalog-body");
+const katMsg = document.getElementById("kat-msg");
+
+function katalogMeldung(text){
+  katMsg.textContent = text || "";
+}
+
+// Art-Auswahl der Neuanlage einmalig befüllen
+document.getElementById("kat-new-art").innerHTML = optionsHtml(ARTEN.map(a => [a,a]), "Handfunkgerät");
+
+function katalogRendern(){
+  const eintraege = katalogSortiert();
+  if(!eintraege.length){
+    katalogBody.innerHTML = '<tr><td colspan="4" class="kat-empty">Der Katalog ist leer. Unten neue Geräte anlegen.</td></tr>';
+  }else{
+    katalogBody.innerHTML = eintraege.map(function(e){
+      return '<tr data-hersteller="' + esc(e.hersteller) + '" data-modell="' + esc(e.modell) + '">'
+        + '<td class="hersteller-cell">' + esc(e.hersteller) + "</td>"
+        + '<td class="modell-cell">' + esc(e.modell) + "</td>"
+        + '<td class="art-cell">' + esc(e.art) + "</td>"
+        + '<td class="actions">'
+        +   '<button type="button" class="btn-mini btn-kat-edit">Bearbeiten</button>'
+        +   '<button type="button" class="btn-mini danger btn-kat-del">Löschen</button>'
+        + "</td></tr>";
+    }).join("");
+  }
+
+  document.getElementById("hersteller-vorschlaege").innerHTML =
+    herstellerListe().map(h => '<option value="' + esc(h) + '"></option>').join("");
+}
+
+/** Auswahlfelder aller Geräte neu aufbauen, bisherige Auswahl bleibt erhalten. */
+function geraeteAuswahlAktualisieren(){
+  alleGeraete().forEach(function(card){
+    const hSel = card.querySelector(".hersteller-select");
+    const mSel = card.querySelector(".modell-select");
+    const hWert = hSel.value;
+    const mWert = mSel.value;
+    hSel.innerHTML = herstellerOptionsHtml(hWert);
+    mSel.innerHTML = modellOptionsHtml(hWert, mWert);
+  });
+}
+
+katalogBody.addEventListener("click", function(e){
+  const tr = e.target.closest("tr");
+  if(!tr || !tr.dataset.hersteller) return;
+  const hersteller = tr.dataset.hersteller;
+  const modell = tr.dataset.modell;
+
+  if(e.target.classList.contains("btn-kat-del")){
+    katalog = katalog.filter(k => !(k.hersteller === hersteller && k.modell === modell));
+    katalogSpeichern();
+    katalogRendern();
+    geraeteAuswahlAktualisieren();
+    katalogMeldung("");
+    return;
+  }
+
+  if(e.target.classList.contains("btn-kat-edit")){
+    const eintrag = katalogFindet(hersteller, modell);
+    if(!eintrag) return;
+    tr.querySelector(".modell-cell").innerHTML =
+      '<input type="text" class="edit-modell" value="' + esc(eintrag.modell) + '">';
+    tr.querySelector(".art-cell").innerHTML =
+      '<select class="edit-art">' + optionsHtml(ARTEN.map(a => [a,a]), eintrag.art) + "</select>";
+    tr.querySelector(".actions").innerHTML =
+      '<button type="button" class="btn-mini primary btn-kat-save">Speichern</button>'
+      + '<button type="button" class="btn-mini btn-kat-cancel">Abbrechen</button>';
+    katalogMeldung("");
+    return;
+  }
+
+  if(e.target.classList.contains("btn-kat-cancel")){
+    katalogRendern();
+    katalogMeldung("");
+    return;
+  }
+
+  if(e.target.classList.contains("btn-kat-save")){
+    const neuesModell = tr.querySelector(".edit-modell").value.trim();
+    const neueArt = tr.querySelector(".edit-art").value;
+    if(!neuesModell){
+      katalogMeldung("Bitte eine Modellbezeichnung eingeben.");
+      return;
+    }
+    if(neuesModell !== modell && katalogFindet(hersteller, neuesModell)){
+      katalogMeldung("„" + hersteller + " " + neuesModell + "“ ist bereits im Katalog.");
+      return;
+    }
+    const eintrag = katalogFindet(hersteller, modell);
+    if(eintrag){
+      eintrag.modell = neuesModell;
+      eintrag.art = neueArt;
+      katalogSpeichern();
+    }
+    katalogRendern();
+    geraeteAuswahlAktualisieren();
+    katalogMeldung("");
+  }
+});
+
+document.getElementById("btn-kat-add").addEventListener("click", function(){
+  const hIn = document.getElementById("kat-new-hersteller");
+  const mIn = document.getElementById("kat-new-modell");
+  const aIn = document.getElementById("kat-new-art");
+  const hersteller = hIn.value.trim();
+  const modell = mIn.value.trim();
+
+  if(!hersteller || !modell){
+    katalogMeldung("Bitte Hersteller und Modell angeben.");
+    return;
+  }
+  if(katalogFindet(hersteller, modell)){
+    katalogMeldung("„" + hersteller + " " + modell + "“ ist bereits im Katalog.");
+    return;
+  }
+  katalogHinzufuegen(hersteller, modell, aIn.value);
+  mIn.value = "";
+  katalogRendern();
+  geraeteAuswahlAktualisieren();
+  katalogMeldung("");
+  mIn.focus();
+});
+
+function katalogOeffnen(){
+  katalogRendern();
+  katalogMeldung("");
+  overlay.hidden = false;
+}
+function katalogSchliessen(){
+  overlay.hidden = true;
+  katalogMeldung("");
+}
+
+document.getElementById("btn-katalog-reset").addEventListener("click", function(){
+  if(!confirm("Katalog auf die mitgelieferte Standardliste zurücksetzen? Selbst angelegte Geräte gehen dabei verloren.")) return;
+  katalogZuruecksetzen(false);
+  katalogRendern();
+  geraeteAuswahlAktualisieren();
+  katalogMeldung("");
+});
+
+document.getElementById("btn-katalog").addEventListener("click", katalogOeffnen);
+document.getElementById("btn-katalog-close").addEventListener("click", katalogSchliessen);
+document.getElementById("btn-katalog-done").addEventListener("click", katalogSchliessen);
+overlay.addEventListener("click", function(e){
+  if(e.target === overlay) katalogSchliessen();
+});
+document.addEventListener("keydown", function(e){
+  if(e.key === "Escape" && !overlay.hidden) katalogSchliessen();
+});
+
+/* ============================================================
+   Zustand sammeln und anwenden
+   ============================================================ */
+function wert(id){ return document.getElementById(id).value; }
+function setzeWert(id, v){ document.getElementById(id).value = txt(v); }
+
+function zustandSammeln(){
+  const geraete = alleGeraete().map(function(card){
+    const g = {
+      id: card.dataset.id,
+      hersteller: card.querySelector(".hersteller-select").value,
+      modell: card.querySelector(".modell-select").value,
+      art: card.dataset.art || "",
+      seriennummer: card.querySelector('[data-g="seriennummer"]').value,
+      standort: card.querySelector('[data-g="standort"]').value,
+      checks: {},
+      firmware: card.querySelector('[data-g="firmware"]').value,
+      frequenzmesswerte: {},
+      stehwelle: {
+        vorlauf_w: card.querySelector('[data-g="vorlauf_w"]').value,
+        ruecklauf_w: card.querySelector('[data-g="ruecklauf_w"]').value
+      },
+      maengel: card.querySelector('[data-g="maengel"]').value,
+      ersatzteile: card.querySelector('[data-g="ersatzteile"]').value,
+      ergebnis: card.querySelector(".ergebnis-select").value
+    };
+    CHECK_ITEMS.forEach(function(item){
+      g.checks[item[0]] = card.querySelector('[data-g="check_' + item[0] + '"]').value;
+    });
+    card.querySelectorAll(".mess-body tr").forEach(function(tr){
+      const werte = {};
+      MESSFELDER.forEach(function(feld){
+        werte[feld] = tr.querySelector('[data-mess="' + feld + '"]').value;
+      });
+      g.frequenzmesswerte[tr.dataset.freq] = werte;
+    });
+    return g;
+  });
+
+  return {
+    _type: DATA_TYPE,
+    _version: DATA_VERSION,
+    protokollNr: wert("protokollNr"),
+    kundenName: wert("kundenName"),
+    datum: wert("datum"),
+    technikerName: wert("technikerName"),
+    frequenzplan: frequenzplan(),
+    geraete: geraete,
+    bemerkungen: wert("bemerkungen"),
+    naechsteWartung: wert("naechsteWartung")
+  };
+}
+
+function zustandAnwenden(state){
+  if(!state || typeof state !== "object") return false;
+
+  setzeWert("protokollNr", state.protokollNr);
+  setzeWert("kundenName", state.kundenName);
+  setzeWert("datum", state.datum);
+  setzeWert("technikerName", state.technikerName);
+  setzeWert("bemerkungen", state.bemerkungen);
+  setzeWert("naechsteWartung", state.naechsteWartung);
+
+  // Frequenzplan (mindestens ein Eintrag)
+  freqContainer.innerHTML = "";
+  const plan = Array.isArray(state.frequenzplan) ? state.frequenzplan : [];
+  if(plan.length) plan.forEach(f => frequenzHinzufuegen(f, true));
+  else frequenzHinzufuegen({}, true);
+  freqRows().forEach(betriebsartUmschalten);
+
+  // Geräte
+  geraeteContainer.innerHTML = "";
+  const geraete = Array.isArray(state.geraete) ? state.geraete : [];
+  geraete.forEach(function(g){
+    // fehlende Katalogeinträge ergänzen, damit die Auswahl vollständig ist
+    if(g && g.hersteller && g.modell && !katalogFindet(g.hersteller, g.modell)){
+      katalogHinzufuegen(g.hersteller, g.modell, g.art);
+    }
+    geraetHinzufuegen(g, true);
+  });
+  if(!geraete.length) geraetHinzufuegen({}, true);
+
+  aktualisiereFreqAnzeigen();
+  resizeAllTextareas();
+  return true;
+}
+
+/* ============================================================
+   Autosave (Browser-Entwurf)
+   ============================================================ */
+let autosaveTimer = null;
+const statusText = document.getElementById("save-status");
+
+function autosavePlanen(){
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(autosaveJetzt, 700);
+}
+
+function autosaveJetzt(){
+  try{
+    localStorage.setItem(LS_DRAFT, JSON.stringify({
+      savedAt: new Date().toISOString(),
+      state: zustandSammeln()
+    }));
+    const now = new Date();
+    statusText.textContent = "Entwurf gespeichert " + pad(now.getHours()) + ":" + pad(now.getMinutes());
+  }catch(e){
+    statusText.textContent = "Entwurf konnte nicht gespeichert werden";
+  }
+}
+
+function entwurfPruefen(){
+  let parsed = null;
+  try{
+    const raw = localStorage.getItem(LS_DRAFT);
+    if(!raw) return false;
+    parsed = JSON.parse(raw);
+  }catch(e){ return false; }
+  if(!parsed || !parsed.state) return false;
+
+  const banner = document.getElementById("draft-banner");
+  const d = new Date(parsed.savedAt);
+  document.getElementById("draft-time").textContent = isNaN(d.getTime())
+    ? "unbekannter Zeitpunkt"
+    : pad(d.getDate()) + "." + pad(d.getMonth()+1) + "." + d.getFullYear() + " " + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  banner.hidden = false;
+
+  document.getElementById("btn-restore").onclick = function(){
+    zustandAnwenden(parsed.state);
+    banner.hidden = true;
+  };
+  document.getElementById("btn-discard").onclick = function(){
+    try{ localStorage.removeItem(LS_DRAFT); }catch(e){}
+    banner.hidden = true;
+    protokollLeeren();
+  };
+  return true;
+}
+
+/* ============================================================
+   Kopf- und Abschlussfelder
+   ============================================================ */
+["protokollNr","kundenName","datum","technikerName","bemerkungen","naechsteWartung"].forEach(function(id){
+  const el = document.getElementById(id);
+  el.addEventListener("input", function(){
+    if(el.tagName === "TEXTAREA") autoResize(el);
+    autosavePlanen();
+  });
+  el.addEventListener("change", autosavePlanen);
+});
+
+/* ============================================================
+   Werkzeugleiste: Neu / Speichern / Laden / Drucken
+   ============================================================ */
+function protokollLeeren(){
+  setzeWert("protokollNr", neueProtokollNr());
+  setzeWert("kundenName", "");
+  setzeWert("datum", todayISO());
+  setzeWert("technikerName", "");
+  setzeWert("bemerkungen", "");
+  setzeWert("naechsteWartung", "");
+  freqContainer.innerHTML = "";
+  frequenzHinzufuegen({}, true);
+  geraeteContainer.innerHTML = "";
+  geraetHinzufuegen({}, true);
+  resizeAllTextareas();
+}
+
+document.getElementById("btn-new").addEventListener("click", function(){
+  if(!confirm("Neues, leeres Protokoll anlegen? Nicht als Datei gespeicherte Eingaben gehen verloren.")) return;
+  protokollLeeren();
+  autosaveJetzt();
+});
+
+document.getElementById("btn-save").addEventListener("click", function(){
+  const state = zustandSammeln();
+  const blob = new Blob([JSON.stringify(state, null, 2)], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const kunde = (state.kundenName || "Protokoll")
+    .replace(/[^a-z0-9äöüßÄÖÜ\-_ ]/gi, "").trim().replace(/\s+/g,"_") || "Protokoll";
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "Wartungsprotokoll_" + kunde + "_" + (state.datum || todayISO()) + ".json";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+});
+
+document.getElementById("btn-load").addEventListener("click", function(){
+  document.getElementById("file-input").click();
+});
+
+document.getElementById("file-input").addEventListener("change", function(e){
+  const file = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(evt){
+    let data = null;
+    try{ data = JSON.parse(evt.target.result); }
+    catch(err){
+      alert("Diese Datei konnte nicht gelesen werden. Bitte eine mit diesem Formular gespeicherte JSON-Datei auswählen.");
+      return;
+    }
+    if(!data || typeof data !== "object" || !Array.isArray(data.geraete)){
+      alert("Diese Datei enthält kein gültiges Wartungsprotokoll. Der aktuelle Stand bleibt unverändert.");
+      return;
+    }
+    zustandAnwenden(data);
+    autosaveJetzt();
+  };
+  reader.onerror = function(){
+    alert("Die Datei konnte nicht gelesen werden.");
+  };
+  reader.readAsText(file);
+});
+
+/* ============================================================
+   Druckaufbereitung
+   ============================================================ */
+function istLeer(el){
+  return !el || !String(el.value || "").trim();
+}
+
+/** Frequenzplan als kompakte Tabelle für den Ausdruck erzeugen. */
+function freqDruckTabelleBauen(){
+  const wrap = document.getElementById("freq-print-wrap");
+  const plan = frequenzplan();
+  const zeilen = plan.map(function(f){
+    const duplex = f.betriebsart === "duplex";
+    const tx = duplex ? f.sendefrequenz : f.frequenz;
+    const rx = duplex ? f.empfangsfrequenz : f.frequenz;
+    return "<tr>"
+      + "<td>" + esc(f.bezeichnung || "–") + "</td>"
+      + "<td>" + (duplex ? "Duplex" : "Simplex") + "</td>"
+      + "<td>" + esc(tx || "–") + "</td>"
+      + "<td>" + esc(rx || "–") + "</td>"
+      + "<td>" + esc(bandbreiteLabel(f.kanalbandbreite) || "–") + "</td>"
+      + "</tr>";
+  }).join("");
+
+  wrap.innerHTML = '<table class="freq-print"><thead><tr>'
+    + "<th>Bezeichnung</th><th>Betriebsart</th><th>Sendefrequenz (MHz)</th>"
+    + "<th>Empfangsfrequenz (MHz)</th><th>Bandbreite</th>"
+    + "</tr></thead><tbody>" + zeilen + "</tbody></table>";
+}
+
+/**
+ * Leere Inhalte für den Ausdruck markieren.
+ * Es wird ausschließlich die Klasse "print-empty" gesetzt; das Layout selbst
+ * bleibt unangetastet, damit im Raster nichts verrutscht.
+ */
+function druckMarkierungenSetzen(){
+  druckMarkierungenEntfernen();
+
+  // Einzelfelder
+  document.querySelectorAll(".field").forEach(function(feld){
+    if(feld.classList.contains("keep-print")) return;
+    if(feld.closest("#frequenz-container")) return;   // Plan wird separat gedruckt
+    if(feld.closest(".overlay")) return;              // Overlay wird nie gedruckt
+    const ctrl = feld.querySelector("input, select, textarea");
+    if(istLeer(ctrl)) feld.classList.add("print-empty");
+  });
+
+  alleGeraete().forEach(function(card){
+    // Checklisten-Punkte
+    const checkRows = Array.from(card.querySelectorAll(".check-row"));
+    let checksBefuellt = 0;
+    checkRows.forEach(function(row){
+      if(istLeer(row.querySelector("select"))) row.classList.add("print-empty");
+      else checksBefuellt++;
+    });
+    if(checksBefuellt === 0) card.querySelector(".checks-block").classList.add("print-empty");
+
+    // Messwert-Zeilen
+    const messRows = Array.from(card.querySelectorAll(".mess-body tr"));
+    let messBefuellt = 0;
+    messRows.forEach(function(tr){
+      const leer = MESSFELDER.every(function(feld){
+        return istLeer(tr.querySelector('[data-mess="' + feld + '"]'));
+      });
+      if(leer) tr.classList.add("print-empty");
+      else messBefuellt++;
+    });
+    if(messBefuellt === 0) card.querySelector(".messwerte-block").classList.add("print-empty");
+
+    // Stehwelle
+    const stehwelle = card.querySelector(".stehwelle-block");
+    const vor = card.querySelector('[data-g="vorlauf_w"]');
+    const rueck = card.querySelector('[data-g="ruecklauf_w"]');
+    if(istLeer(vor) && istLeer(rueck)) stehwelle.classList.add("print-empty");
+  });
+
+  // Abschluss-Abschnitt nur drucken, wenn etwas darin steht
+  const abschluss = document.getElementById("abschluss-section");
+  if(istLeer(document.getElementById("bemerkungen")) && istLeer(document.getElementById("naechsteWartung"))){
+    abschluss.classList.add("print-empty");
+  }
+}
+
+function druckMarkierungenEntfernen(){
+  document.querySelectorAll(".print-empty").forEach(function(el){
+    el.classList.remove("print-empty");
+  });
+}
+
+function druckVorbereiten(){
+  freqDruckTabelleBauen();
+  resizeAllTextareas();
+  druckMarkierungenSetzen();
+}
+
+document.getElementById("btn-print").addEventListener("click", function(){
+  katalogSchliessen();
+  druckVorbereiten();
+  window.print();
+});
+
+// Auch bei Druck über Menü oder Tastenkürzel korrekt aufbereiten
+window.addEventListener("beforeprint", druckVorbereiten);
+window.addEventListener("afterprint", druckMarkierungenEntfernen);
+
+/* ============================================================
+   Start
+   ============================================================ */
+katalogLaden();
+
+if(!entwurfPruefen()){
+  setzeWert("protokollNr", neueProtokollNr());
+  setzeWert("datum", todayISO());
+  frequenzHinzufuegen({}, true);
+  geraetHinzufuegen({}, true);
+  resizeAllTextareas();
+}
+
+// Für automatisierte Prüfungen zugänglich machen (im Betrieb ohne Bedeutung)
+window.__wp = {
+  zustandSammeln: zustandSammeln,
+  zustandAnwenden: zustandAnwenden,
+  frequenzHinzufuegen: frequenzHinzufuegen,
+  geraetHinzufuegen: geraetHinzufuegen,
+  druckVorbereiten: druckVorbereiten,
+  druckMarkierungenEntfernen: druckMarkierungenEntfernen,
+  protokollLeeren: protokollLeeren,
+  katalog: function(){ return katalog; },
+  katalogHinzufuegen: katalogHinzufuegen,
+  katalogZuruecksetzen: katalogZuruecksetzen,
+  KATALOG_GRUNDBESTAND: KATALOG_GRUNDBESTAND,
+  modellOptionsHtml: modellOptionsHtml,
+  freqAnzeige: freqAnzeige
+};
+
+})();
+</script>
+</body>
+</html>
