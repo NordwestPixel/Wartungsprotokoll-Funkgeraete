@@ -16,7 +16,7 @@
   bereits installierte Geräte die alte Fassung.
 */
 
-const CACHE_VERSION = "wp-v4.1.0";
+const CACHE_VERSION = "wp-v4.2.0";
 const CACHE_NAME = "wartungsprotokoll-" + CACHE_VERSION;
 
 // Alles, was für den Offline-Betrieb gebraucht wird.

@@ -192,8 +192,15 @@ table.mess-table th{
 }
 table.mess-table td{ padding:5px 6px; border-bottom:1px solid var(--line-soft); vertical-align:middle; }
 table.mess-table td input{ min-height:32px; padding:5px 7px; }
+/*
+  Einheiten behalten ihre Schreibweise: Spaltenkoepfe werden gross gesetzt,
+  dabei wuerde aus "µV" ein griechisches "MV" und aus "kHz" ein "KHZ".
+*/
+.einheit{ text-transform:none; }
 .freq-label{ font-weight:600; }
 .freq-meta{ font-size:11px; color:var(--muted); }
+/* Eingabe entspricht noch nicht dem erwarteten Format */
+input.feld-fehler{ border-color:var(--bad); background:#fdf3f2; }
 
 .stehwelle-grid{ display:grid; grid-template-columns:repeat(2,1fr); gap:10px 20px; max-width:420px; }
 
@@ -625,13 +632,34 @@ const BANDBREITEN = [
   ["25",   "25 kHz"]
 ];
 
+const MODULATIONSARTEN = [
+  ["",       "– wählen –"],
+  ["analog", "Analog"],
+  ["dmr",    "DMR"],
+  ["nxdn",   "NXDN"],
+  ["tetra",  "Tetra"]
+];
+
 const MESSFELDER = ["empfindlichkeit_uv","sendeleistung_w","modulation_khz","frequenzablage"];
+
+/*
+  Abweichende Attribute einzelner Messfelder. Die Frequenzablage verlangt ein
+  Vorzeichen; die Ziffern-Tastatur mobiler Geräte bietet keines an, deshalb
+  dort die vollständige Tastatur.
+*/
+const MESSFELD_ATTR = {
+  frequenzablage: ' inputmode="text" placeholder="+/- Hz"'
+};
+
+/* Frequenzablage: Vorzeichen zwingend, Komma oder Punkt als Dezimaltrenner. */
+const ABLAGE_MUSTER  = /^[+-]\s?\d+([.,]\d+)?$/;
+const ABLAGE_HINWEIS = "Bitte mit Vorzeichen angeben, z. B. +150 oder -150.";
 
 const LS_KATALOG     = "wp_katalog_v5";   // aktueller Katalog
 const LS_KATALOG_ALT = "wp_katalog_v4";   // Vorgänger, wird einmalig übernommen
 const LS_DRAFT       = "wp_draft_v4";
 const DATA_TYPE  = "wartungsprotokoll_funkgeraete";
-const DATA_VERSION = 4;
+const DATA_VERSION = 5;
 
 /* ============================================================
    Hilfsfunktionen
@@ -783,7 +811,8 @@ function freqAlsObjekt(row){
     frequenz:         row.querySelector('[data-f="frequenz"]').value,
     sendefrequenz:    row.querySelector('[data-f="sendefrequenz"]').value,
     empfangsfrequenz: row.querySelector('[data-f="empfangsfrequenz"]').value,
-    kanalbandbreite:  row.querySelector('[data-f="kanalbandbreite"]').value
+    kanalbandbreite:  row.querySelector('[data-f="kanalbandbreite"]').value,
+    modulationsart:   row.querySelector('[data-f="modulationsart"]').value
   };
 }
 
@@ -793,6 +822,12 @@ function frequenzplan(){
 
 function bandbreiteLabel(wert){
   const treffer = BANDBREITEN.find(b => b[0] === wert);
+  return treffer ? treffer[1] : "";
+}
+
+function modulationsartLabel(wert){
+  if(!wert) return "";
+  const treffer = MODULATIONSARTEN.find(m => m[0] === wert);
   return treffer ? treffer[1] : "";
 }
 
@@ -808,6 +843,8 @@ function freqAnzeige(f){
   const werte = teile.length ? teile.join(" / ") + " MHz" : "";
   const meta = [];
   meta.push(f.betriebsart === "duplex" ? "Duplex" : "Simplex");
+  const mod = modulationsartLabel(f.modulationsart);
+  if(mod) meta.push(mod);
   const bb = bandbreiteLabel(f.kanalbandbreite);
   if(bb) meta.push(bb);
   return {
@@ -854,6 +891,12 @@ function freqRowHtml(data){
     +       optionsHtml(BANDBREITEN, data.kanalbandbreite || "12.5")
     +     '</select>'
     +   '</div>'
+    +   '<div class="field">'
+    +     '<label>Modulationsart</label>'
+    +     '<select data-f="modulationsart">'
+    +       optionsHtml(MODULATIONSARTEN, data.modulationsart)
+    +     '</select>'
+    +   '</div>'
     + '</div>';
 }
 
@@ -868,7 +911,8 @@ function frequenzHinzufuegen(data, stumm){
     frequenz:         txt(data.frequenz),
     sendefrequenz:    txt(data.sendefrequenz),
     empfangsfrequenz: txt(data.empfangsfrequenz),
-    kanalbandbreite:  txt(data.kanalbandbreite)
+    kanalbandbreite:  txt(data.kanalbandbreite),
+    modulationsart:   txt(data.modulationsart)
   });
   freqContainer.appendChild(row);
   freqNeuNummerieren();
@@ -1029,7 +1073,8 @@ function messZeileHtml(freq, werte){
     + '<td><div class="freq-label">' + esc(anzeige.label) + "</div>"
     + '<div class="freq-meta"' + (anzeige.meta ? "" : " hidden") + ">" + esc(anzeige.meta) + "</div></td>";
   MESSFELDER.forEach(function(feld){
-    html += '<td><input type="text" inputmode="decimal" data-mess="' + feld + '" value="' + esc(werte[feld]) + '"></td>';
+    const attr = MESSFELD_ATTR[feld] || ' inputmode="decimal"';
+    html += '<td><input type="text"' + attr + ' data-mess="' + feld + '" value="' + esc(werte[feld]) + '"></td>';
   });
   return html + "</tr>";
 }
@@ -1086,11 +1131,15 @@ function deviceCardHtml(data){
     +   '<div class="sub-title">Messwerte je Frequenz</div>'
     +   '<div class="table-wrap"><table class="mess-table">'
     +     "<thead><tr>"
-    +       "<th>Frequenz</th><th>Empfindlichkeit (µV)</th><th>Sendeleistung (W)</th>"
-    +       "<th>Modulation (kHz)</th><th>Frequenzablage</th>"
+    +       "<th>Frequenz</th>"
+    +       '<th>Empfindlichkeit <span class="einheit">(µV)</span></th>'
+    +       '<th>Sendeleistung <span class="einheit">(W)</span></th>'
+    +       '<th>Modulation <span class="einheit">(±kHz)</span></th>'
+    +       '<th>Frequenzablage <span class="einheit">(Hz)</span></th>'
     +     "</tr></thead>"
     +     '<tbody class="mess-body"></tbody>'
     +   "</table></div>"
+    +   '<div class="hint no-print">Frequenzablage bitte mit Vorzeichen angeben, z. B. +150 oder -150.</div>'
     + "</div>"
 
     + '<div class="stehwelle-block" hidden>'
@@ -1150,6 +1199,7 @@ function geraetHinzufuegen(data, stumm){
 
   artAnwenden(card);
   ergebnisFarbe(card);
+  ablagenPruefen(card);
   card.querySelectorAll(".check-select").forEach(checkFarbe);
   card.querySelectorAll("textarea").forEach(autoResize);
   geraeteNeuNummerieren();
@@ -1186,6 +1236,31 @@ function checkFarbe(select){
   if(select.value) select.classList.add("val-" + select.value);
 }
 
+/**
+ * Frequenzablage prüfen. Der eingegebene Wert bleibt unverändert; fehlt das
+ * Vorzeichen, wird das Feld lediglich gekennzeichnet.
+ */
+function ablagePruefen(input){
+  if(!input) return true;
+  const roh = String(input.value || "").trim();
+  const ok = (roh === "") || ABLAGE_MUSTER.test(roh);
+  if(ok){
+    input.classList.remove("feld-fehler");
+    input.removeAttribute("aria-invalid");
+    input.removeAttribute("title");
+  }else{
+    input.classList.add("feld-fehler");
+    input.setAttribute("aria-invalid", "true");
+    input.setAttribute("title", ABLAGE_HINWEIS);
+  }
+  return ok;
+}
+
+/** Alle Ablage-Felder einer Gerätekarte prüfen. */
+function ablagenPruefen(card){
+  card.querySelectorAll('[data-mess="frequenzablage"]').forEach(ablagePruefen);
+}
+
 geraeteContainer.addEventListener("change", function(e){
   const card = e.target.closest(".device-card");
   if(!card) return;
@@ -1209,6 +1284,7 @@ geraeteContainer.addEventListener("change", function(e){
 
 geraeteContainer.addEventListener("input", function(e){
   if(e.target.tagName === "TEXTAREA") autoResize(e.target);
+  if(e.target.matches('[data-mess="frequenzablage"]')) ablagePruefen(e.target);
   autosavePlanen();
 });
 
@@ -1620,13 +1696,16 @@ function freqDruckTabelleBauen(){
       + "<td>" + (duplex ? "Duplex" : "Simplex") + "</td>"
       + "<td>" + esc(tx || "–") + "</td>"
       + "<td>" + esc(rx || "–") + "</td>"
+      + "<td>" + esc(modulationsartLabel(f.modulationsart) || "–") + "</td>"
       + "<td>" + esc(bandbreiteLabel(f.kanalbandbreite) || "–") + "</td>"
       + "</tr>";
   }).join("");
 
   wrap.innerHTML = '<table class="freq-print"><thead><tr>'
-    + "<th>Bezeichnung</th><th>Betriebsart</th><th>Sendefrequenz (MHz)</th>"
-    + "<th>Empfangsfrequenz (MHz)</th><th>Bandbreite</th>"
+    + "<th>Bezeichnung</th><th>Betriebsart</th>"
+    + '<th>Sendefrequenz <span class="einheit">(MHz)</span></th>'
+    + '<th>Empfangsfrequenz <span class="einheit">(MHz)</span></th>'
+    + "<th>Modulationsart</th><th>Bandbreite</th>"
     + "</tr></thead><tbody>" + zeilen + "</tbody></table>";
 }
 
@@ -1732,7 +1811,9 @@ window.__wp = {
   katalogZuruecksetzen: katalogZuruecksetzen,
   KATALOG_GRUNDBESTAND: KATALOG_GRUNDBESTAND,
   modellOptionsHtml: modellOptionsHtml,
-  freqAnzeige: freqAnzeige
+  freqAnzeige: freqAnzeige,
+  ablagePruefen: ablagePruefen,
+  MODULATIONSARTEN: MODULATIONSARTEN
 };
 
 })();
